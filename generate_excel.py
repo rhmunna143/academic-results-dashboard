@@ -46,7 +46,7 @@ def calculate_gpa_dakhil(row):
     """
     # Compulsory subjects with their full marks
     compulsory_subjects = {
-        'Quran_Mazid': 100,
+        'Quran_Mazid': 200,
         'Arabic_Combined': 200,
         'Aqaid': 100,
         'English_Combined': 200,
@@ -112,7 +112,7 @@ def create_data_source():
             'Shakib Rahman', 'Nusrat Jahan', 'Arif Hossain', 'Tasnia Akter'
         ],
         # Compulsory Subjects (8 subjects)
-        'Quran_Mazid': [random.randint(65, 95) for _ in range(20)],  # 100 marks
+        'Quran_Mazid': [random.randint(130, 190) for _ in range(20)],  # 200 marks (Combined)
         'Arabic_Combined': [random.randint(130, 190) for _ in range(20)],  # 200 marks
         'Aqaid': [random.randint(60, 95) for _ in range(20)],  # 100 marks
         'English_Combined': [random.randint(120, 185) for _ in range(20)],  # 200 marks
@@ -154,9 +154,9 @@ def style_data_source_sheet(ws, df):
     subject_cols_200 = ['D', 'G']  # Arabic Combined, English Combined, Bangla Combined (actually G is Bangla)
     
     # Update: Correct column mapping
-    # C=Quran(100), D=Arabic(200), E=Aqaid(100), F=English(200), G=Bangla(200), H=Math(100), I=Islamic History(100), J=ICT(100), K=Mantiq(100), L=Career(100), M=Physical(100)
-    subject_cols_100_marks = ['C', 'E', 'H', 'I', 'J', 'K', 'L', 'M']  
-    subject_cols_200_marks = ['D', 'F', 'G']
+    # C=Quran(200), D=Arabic(200), E=Aqaid(100), F=English(200), G=Bangla(200), H=Math(100), I=Islamic History(100), J=ICT(100), K=Mantiq(100), L=Career(100), M=Physical(100)
+    subject_cols_100_marks = ['E', 'H', 'I', 'J', 'K', 'L', 'M']  
+    subject_cols_200_marks = ['C', 'D', 'F', 'G']
 
     for row in range(2, len(df) + 2):
         # 100-mark subjects
@@ -439,8 +439,8 @@ def generate_excel_file(filename='Academic_Results_Dashboard.xlsx'):
         # For 100-mark subjects: grade based on actual marks
         # For 200-mark subjects: grade based on percentage
         
-        # Quran Mazid (100 marks) - Column C, Grade in Column N
-        ws[f'N{row}'] = f'=IF(C{row}>=80,"A+",IF(C{row}>=70,"A",IF(C{row}>=60,"A-",IF(C{row}>=50,"B",IF(C{row}>=40,"C",IF(C{row}>=33,"D","F"))))))'
+        # Quran Mazid (200 marks) - Column C, Grade in Column N
+        ws[f'N{row}'] = f'=IF(C{row}/200*100>=80,"A+",IF(C{row}/200*100>=70,"A",IF(C{row}/200*100>=60,"A-",IF(C{row}/200*100>=50,"B",IF(C{row}/200*100>=40,"C",IF(C{row}/200*100>=33,"D","F"))))))'
         ws[f'N{row}'].alignment = Alignment(horizontal='center')
         
         # Arabic Combined (200 marks) - Column D, Grade in Column O
@@ -495,13 +495,13 @@ def generate_excel_file(filename='Academic_Results_Dashboard.xlsx'):
         # Helper function to calculate grade point for each subject
         # For 100-mark subjects: percentage-based
         # For 200-mark subjects: percentage-based  
-        # C=Quran(100), D=Arabic(200), E=Aqaid(100), F=English(200), G=Bangla(200), H=Math(100), I=Islamic History(100), J=ICT(100)
+        # C=Quran(200), D=Arabic(200), E=Aqaid(100), F=English(200), G=Bangla(200), H=Math(100), I=Islamic History(100), J=ICT(100)
         
         # Create grade point calculation for each subject
         # GP formula for 100-mark subject: IF(marks>=80,5,IF(marks>=70,4,IF(marks>=60,3.5,IF(marks>=50,3,IF(marks>=40,2,IF(marks>=33,1,0))))))
         # GP formula for 200-mark subject: IF(marks/200*100>=80,5,IF(marks/200*100>=70,4,IF(marks/200*100>=60,3.5,IF(marks/200*100>=50,3,IF(marks/200*100>=40,2,IF(marks/200*100>=33,1,0))))))
         
-        gp_quran = f'IF(C{row}>=80,5,IF(C{row}>=70,4,IF(C{row}>=60,3.5,IF(C{row}>=50,3,IF(C{row}>=40,2,IF(C{row}>=33,1,0))))))'
+        gp_quran = f'IF(C{row}/200*100>=80,5,IF(C{row}/200*100>=70,4,IF(C{row}/200*100>=60,3.5,IF(C{row}/200*100>=50,3,IF(C{row}/200*100>=40,2,IF(C{row}/200*100>=33,1,0))))))'
         gp_arabic = f'IF(D{row}/200*100>=80,5,IF(D{row}/200*100>=70,4,IF(D{row}/200*100>=60,3.5,IF(D{row}/200*100>=50,3,IF(D{row}/200*100>=40,2,IF(D{row}/200*100>=33,1,0))))))'
         gp_aqaid = f'IF(E{row}>=80,5,IF(E{row}>=70,4,IF(E{row}>=60,3.5,IF(E{row}>=50,3,IF(E{row}>=40,2,IF(E{row}>=33,1,0))))))'
         gp_english = f'IF(F{row}/200*100>=80,5,IF(F{row}/200*100>=70,4,IF(F{row}/200*100>=60,3.5,IF(F{row}/200*100>=50,3,IF(F{row}/200*100>=40,2,IF(F{row}/200*100>=33,1,0))))))'
@@ -512,7 +512,7 @@ def generate_excel_file(filename='Academic_Results_Dashboard.xlsx'):
         gp_mantiq = f'IF(K{row}>=80,5,IF(K{row}>=70,4,IF(K{row}>=60,3.5,IF(K{row}>=50,3,IF(K{row}>=40,2,IF(K{row}>=33,1,0))))))'
         
         # Check if any compulsory subject or continuous assessment failed
-        fail_check = f'OR(C{row}<33,D{row}<66,E{row}<33,F{row}<66,G{row}<66,H{row}<33,I{row}<33,J{row}<33,L{row}<33,M{row}<33)'
+        fail_check = f'OR(C{row}<66,D{row}<66,E{row}<33,F{row}<66,G{row}<66,H{row}<33,I{row}<33,J{row}<33,L{row}<33,M{row}<33)'
         
         # Base GPA = average of 8 compulsory subjects
         base_gpa = f'({gp_quran}+{gp_arabic}+{gp_aqaid}+{gp_english}+{gp_bangla}+{gp_math}+{gp_history}+{gp_ict})/8'
