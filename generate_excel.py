@@ -54,7 +54,7 @@ def calculate_gpa_dakhil(row):
         'Bangla': ('Bangla_I', 'Bangla_II', 200),
         'Mathematics': ('Mathematics', None, 100),
         'Islamic_History': ('Islamic_History', None, 100),
-        'ICT': ('ICT', None, 100)
+        'ICT': ('ICT', None, 50)
     }
     
     # Check if any compulsory subject failed (below 33%)
@@ -65,7 +65,11 @@ def calculate_gpa_dakhil(row):
             marks = row[col1] + row[col2]
         else:
             marks = row[col1]
-        min_passing = full_marks * 0.33
+        # ICT special case: pass based on 33% of 25 marks (8.25)
+        if subject_name == 'ICT':
+            min_passing = 25 * 0.33
+        else:
+            min_passing = full_marks * 0.33
         if marks < min_passing:
             return 0.0
     
@@ -136,7 +140,7 @@ def create_data_source():
         'Bangla_II': [random.randint(65, 95) for _ in range(20)],  # 100 marks
         'Mathematics': [random.randint(55, 95) for _ in range(20)],  # 100 marks
         'Islamic_History': [random.randint(60, 90) for _ in range(20)],  # 100 marks
-        'ICT': [random.randint(65, 95) for _ in range(20)],  # 100 marks
+        'ICT': [random.randint(30, 48) for _ in range(20)],  # 50 marks (pass on 33% of 25 = 8.25)
         # Additional Subject
         'Mantiq': [random.randint(50, 90) for _ in range(20)],  # 100 marks
         # Continuous Assessment Subjects
@@ -269,8 +273,8 @@ def create_subject_grades_sheet(wb, df):
         # Islamic History (100 marks - M)
         ws[f'I{row}'] = f"=IF('Data Source'!M{data_row}>=80,\"A+\",IF('Data Source'!M{data_row}>=70,\"A\",IF('Data Source'!M{data_row}>=60,\"A-\",IF('Data Source'!M{data_row}>=50,\"B\",IF('Data Source'!M{data_row}>=40,\"C\",IF('Data Source'!M{data_row}>=33,\"D\",\"F\"))))))"
         
-        # ICT (100 marks - N)
-        ws[f'J{row}'] = f"=IF('Data Source'!N{data_row}>=80,\"A+\",IF('Data Source'!N{data_row}>=70,\"A\",IF('Data Source'!N{data_row}>=60,\"A-\",IF('Data Source'!N{data_row}>=50,\"B\",IF('Data Source'!N{data_row}>=40,\"C\",IF('Data Source'!N{data_row}>=33,\"D\",\"F\"))))))"
+        # ICT (50 marks - N) - calculate percentage then grade
+        ws[f'J{row}'] = f"=IF('Data Source'!N{data_row}/50*100>=80,\"A+\",IF('Data Source'!N{data_row}/50*100>=70,\"A\",IF('Data Source'!N{data_row}/50*100>=60,\"A-\",IF('Data Source'!N{data_row}/50*100>=50,\"B\",IF('Data Source'!N{data_row}/50*100>=40,\"C\",IF('Data Source'!N{data_row}/50*100>=33,\"D\",\"F\"))))))"
         
         # Mantiq (100 marks - O)
         ws[f'K{row}'] = f"=IF('Data Source'!O{data_row}>=80,\"A+\",IF('Data Source'!O{data_row}>=70,\"A\",IF('Data Source'!O{data_row}>=60,\"A-\",IF('Data Source'!O{data_row}>=50,\"B\",IF('Data Source'!O{data_row}>=40,\"C\",IF('Data Source'!O{data_row}>=33,\"D\",\"F\"))))))"
@@ -497,13 +501,13 @@ def generate_excel_file(filename='Academic_Results_Dashboard.xlsx'):
         # L=Math(100), M=Islamic History(100), N=ICT(100), O=Mantiq(100), P=Career(100), Q=Physical(100)
         
         # Total: Sum of compulsory subjects (8 subjects but 12 columns due to 4 combined subjects)
-        # Compulsory: Quran+Hadith, Arabic I+II, Aqaid, English I+II, Bangla I+II, Math, Islamic History, ICT
+        # Compulsory: Quran+Hadith(200), Arabic I+II(200), Aqaid(100), English I+II(200), Bangla I+II(200), Math(100), Islamic History(100), ICT(50)
         # That's columns C through N (excluding O=Mantiq, P=Career, Q=Physical)
+        # Total marks = 1150 (not 1200 due to ICT being 50)
         ws[f'R{row}'] = f'=SUM(C{row}:N{row})'
         
-        # Average: Average of compulsory subjects (total marks = 1200, so divide by 12 columns then multiply by 100/100)
-        # Actually simpler: Total/12 to get average per 100-mark subject
-        ws[f'S{row}'] = f'=ROUND(R{row}/12,2)'
+        # Average: Total/11.5 to normalize (1150/11.5 = 100-mark equivalent)
+        ws[f'S{row}'] = f'=ROUND(R{row}/11.5,2)'
         ws[f'S{row}'].number_format = '0.00'
         
         # GPA: Dakhil curriculum calculation
@@ -519,13 +523,15 @@ def generate_excel_file(filename='Academic_Results_Dashboard.xlsx'):
         gp_bangla = f'IF((J{row}+K{row})/200*100>=80,5,IF((J{row}+K{row})/200*100>=70,4,IF((J{row}+K{row})/200*100>=60,3.5,IF((J{row}+K{row})/200*100>=50,3,IF((J{row}+K{row})/200*100>=40,2,IF((J{row}+K{row})/200*100>=33,1,0))))))'
         gp_math = f'IF(L{row}>=80,5,IF(L{row}>=70,4,IF(L{row}>=60,3.5,IF(L{row}>=50,3,IF(L{row}>=40,2,IF(L{row}>=33,1,0))))))'
         gp_history = f'IF(M{row}>=80,5,IF(M{row}>=70,4,IF(M{row}>=60,3.5,IF(M{row}>=50,3,IF(M{row}>=40,2,IF(M{row}>=33,1,0))))))'
-        gp_ict = f'IF(N{row}>=80,5,IF(N{row}>=70,4,IF(N{row}>=60,3.5,IF(N{row}>=50,3,IF(N{row}>=40,2,IF(N{row}>=33,1,0))))))'
+        # ICT: 50 marks, calculate percentage then apply GP thresholds
+        gp_ict = f'IF(N{row}/50*100>=80,5,IF(N{row}/50*100>=70,4,IF(N{row}/50*100>=60,3.5,IF(N{row}/50*100>=50,3,IF(N{row}/50*100>=40,2,IF(N{row}/50*100>=33,1,0))))))'
         gp_mantiq = f'IF(O{row}>=80,5,IF(O{row}>=70,4,IF(O{row}>=60,3.5,IF(O{row}>=50,3,IF(O{row}>=40,2,IF(O{row}>=33,1,0))))))'
         
         # Check if any compulsory subject or continuous assessment failed
         # Combined subjects need at least 66 marks total (33% of 200)
         # Single 100-mark subjects need at least 33 marks (33% of 100)
-        fail_check = f'OR((C{row}+D{row})<66,(E{row}+F{row})<66,G{row}<33,(H{row}+I{row})<66,(J{row}+K{row})<66,L{row}<33,M{row}<33,N{row}<33,P{row}<33,Q{row}<33)'
+        # ICT: pass on 33% of 25 = 8.25 marks
+        fail_check = f'OR((C{row}+D{row})<66,(E{row}+F{row})<66,G{row}<33,(H{row}+I{row})<66,(J{row}+K{row})<66,L{row}<33,M{row}<33,N{row}<8.25,P{row}<33,Q{row}<33)'
         
         # Base GPA = average of 8 compulsory subjects
         base_gpa = f'({gp_quran_hadith}+{gp_arabic}+{gp_aqaid}+{gp_english}+{gp_bangla}+{gp_math}+{gp_history}+{gp_ict})/8'
