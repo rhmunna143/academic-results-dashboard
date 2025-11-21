@@ -44,22 +44,29 @@ def calculate_gpa_dakhil(row):
     Continuous Assessment (Career & Physical Education):
     - Pass/Fail only, doesn't affect GPA calculation
     """
-    # Compulsory subjects with their full marks
+    # Compulsory subjects for Dakhil curriculum (8 subjects, 4 combined = 12 columns)
+    # Combined subjects are stored in two columns but calculated together
     compulsory_subjects = {
-        'Quran_Mazid': 200,
-        'Arabic_Combined': 200,
-        'Aqaid': 100,
-        'English_Combined': 200,
-        'Bangla_Combined': 200,
-        'Mathematics': 100,
-        'Islamic_History': 100,
-        'ICT': 100
+        'Quran_Hadith': ('Quran', 'Hadith', 200),  # (col1, col2, total_marks)
+        'Arabic': ('Arabic_I', 'Arabic_II', 200),
+        'Aqaid': ('Aqaid', None, 100),  # Single column subjects
+        'English': ('English_I', 'English_II', 200),
+        'Bangla': ('Bangla_I', 'Bangla_II', 200),
+        'Mathematics': ('Mathematics', None, 100),
+        'Islamic_History': ('Islamic_History', None, 100),
+        'ICT': ('ICT', None, 100)
     }
     
     # Check if any compulsory subject failed (below 33%)
-    for subject, full_marks in compulsory_subjects.items():
+    for subject_name, subject_info in compulsory_subjects.items():
+        col1, col2, full_marks = subject_info
+        # If combined subject, add both columns
+        if col2:
+            marks = row[col1] + row[col2]
+        else:
+            marks = row[col1]
         min_passing = full_marks * 0.33
-        if row[subject] < min_passing:
+        if marks < min_passing:
             return 0.0
     
     # Check continuous assessment subjects (must pass)
@@ -68,8 +75,14 @@ def calculate_gpa_dakhil(row):
     
     # Calculate grade points for all compulsory subjects
     grade_points = []
-    for subject, full_marks in compulsory_subjects.items():
-        gp = calculate_grade_point(row[subject], full_marks)
+    for subject_name, subject_info in compulsory_subjects.items():
+        col1, col2, full_marks = subject_info
+        # If combined subject, add both columns
+        if col2:
+            marks = row[col1] + row[col2]
+        else:
+            marks = row[col1]
+        gp = calculate_grade_point(marks, full_marks)
         grade_points.append(gp)
     
     # Calculate base GPA (average of compulsory subjects)
@@ -111,12 +124,16 @@ def create_data_source():
             'Fahim Ahmed', 'Samira Begum', 'Imran Khan', 'Rafia Islam',
             'Shakib Rahman', 'Nusrat Jahan', 'Arif Hossain', 'Tasnia Akter'
         ],
-        # Compulsory Subjects (8 subjects)
-        'Quran_Mazid': [random.randint(130, 190) for _ in range(20)],  # 200 marks (Combined)
-        'Arabic_Combined': [random.randint(130, 190) for _ in range(20)],  # 200 marks
+        # Compulsory Subjects (8 subjects - 4 combined = 12 columns)
+        'Quran': [random.randint(60, 95) for _ in range(20)],  # 100 marks
+        'Hadith': [random.randint(65, 95) for _ in range(20)],  # 100 marks
+        'Arabic_I': [random.randint(60, 95) for _ in range(20)],  # 100 marks
+        'Arabic_II': [random.randint(65, 95) for _ in range(20)],  # 100 marks
         'Aqaid': [random.randint(60, 95) for _ in range(20)],  # 100 marks
-        'English_Combined': [random.randint(120, 185) for _ in range(20)],  # 200 marks
-        'Bangla_Combined': [random.randint(125, 190) for _ in range(20)],  # 200 marks
+        'English_I': [random.randint(55, 95) for _ in range(20)],  # 100 marks
+        'English_II': [random.randint(60, 90) for _ in range(20)],  # 100 marks
+        'Bangla_I': [random.randint(60, 95) for _ in range(20)],  # 100 marks
+        'Bangla_II': [random.randint(65, 95) for _ in range(20)],  # 100 marks
         'Mathematics': [random.randint(55, 95) for _ in range(20)],  # 100 marks
         'Islamic_History': [random.randint(60, 90) for _ in range(20)],  # 100 marks
         'ICT': [random.randint(65, 95) for _ in range(20)],  # 100 marks
@@ -131,8 +148,8 @@ def create_data_source():
     # inserted into the workbook as Excel formulas so the workbook stays
     # dynamic when users edit marks directly in Excel.
     df = pd.DataFrame(data)
-    subjects = ['Quran_Mazid', 'Arabic_Combined', 'Aqaid', 'English_Combined', 'Bangla_Combined', 
-                'Mathematics', 'Islamic_History', 'ICT', 'Mantiq', 'Career_Education', 'Physical_Education']
+    subjects = ['Quran', 'Hadith', 'Arabic_I', 'Arabic_II', 'Aqaid', 'English_I', 'English_II', 
+                'Bangla_I', 'Bangla_II', 'Mathematics', 'Islamic_History', 'ICT', 'Mantiq', 'Career_Education', 'Physical_Education']
     return df[(['SL', 'Name'] + subjects)]
 
 def style_data_source_sheet(ws, df):
@@ -148,18 +165,13 @@ def style_data_source_sheet(ws, df):
         cell.alignment = Alignment(horizontal='center', vertical='center')
     
     # Apply conditional formatting colors for marks
-    # Columns: C-M for all subjects
-    # Different thresholds for 100-mark vs 200-mark subjects
-    subject_cols_100 = ['C', 'E', 'F', 'H', 'I', 'J', 'K', 'L', 'M']  # Quran, Aqaid, Math, Islamic History, ICT, Mantiq, Career, Physical
-    subject_cols_200 = ['D', 'G']  # Arabic Combined, English Combined, Bangla Combined (actually G is Bangla)
-    
-    # Update: Correct column mapping
-    # C=Quran(200), D=Arabic(200), E=Aqaid(100), F=English(200), G=Bangla(200), H=Math(100), I=Islamic History(100), J=ICT(100), K=Mantiq(100), L=Career(100), M=Physical(100)
-    subject_cols_100_marks = ['E', 'H', 'I', 'J', 'K', 'L', 'M']  
-    subject_cols_200_marks = ['C', 'D', 'F', 'G']
+    # All subjects are now 100 marks each (15 columns: C-Q)
+    # C=Quran, D=Hadith, E=Arabic I, F=Arabic II, G=Aqaid, H=English I, I=English II, 
+    # J=Bangla I, K=Bangla II, L=Math, M=Islamic History, N=ICT, O=Mantiq, P=Career, Q=Physical
+    subject_cols_100_marks = ['C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q']
 
     for row in range(2, len(df) + 2):
-        # 100-mark subjects
+        # All subjects are 100 marks
         for col in subject_cols_100_marks:
             cell = ws[f'{col}{row}']
             value = cell.value
@@ -178,45 +190,29 @@ def style_data_source_sheet(ws, df):
                 cell.fill = PatternFill(start_color="FFE699", end_color="FFE699", fill_type="solid")
             else:
                 cell.fill = PatternFill(start_color="FC9999", end_color="FC9999", fill_type="solid")
-        
-        # 200-mark subjects
-        for col in subject_cols_200_marks:
-            cell = ws[f'{col}{row}']
-            value = cell.value
-            if value is None:
-                continue
-            try:
-                num = float(value)
-            except Exception:
-                continue
-            # Thresholds for 200 marks (double the 100-mark thresholds)
-            if num >= 160:
-                cell.fill = PatternFill(start_color="70AD47", end_color="70AD47", fill_type="solid")
-            elif num >= 120:
-                cell.fill = PatternFill(start_color="FFF2CC", end_color="FFF2CC", fill_type="solid")
-            elif num >= 80:
-                cell.fill = PatternFill(start_color="FFE699", end_color="FFE699", fill_type="solid")
-            else:
-                cell.fill = PatternFill(start_color="FC9999", end_color="FC9999", fill_type="solid")
     
     # Adjust column widths
     ws.column_dimensions['A'].width = 5   # SL
     ws.column_dimensions['B'].width = 18  # Name
-    ws.column_dimensions['C'].width = 12  # Quran Mazid
-    ws.column_dimensions['D'].width = 14  # Arabic Combined
-    ws.column_dimensions['E'].width = 10  # Aqaid
-    ws.column_dimensions['F'].width = 14  # English Combined
-    ws.column_dimensions['G'].width = 14  # Bangla Combined
-    ws.column_dimensions['H'].width = 12  # Mathematics
-    ws.column_dimensions['I'].width = 13  # Islamic History
-    ws.column_dimensions['J'].width = 10  # ICT
-    ws.column_dimensions['K'].width = 10  # Mantiq
-    ws.column_dimensions['L'].width = 12  # Career Education
-    ws.column_dimensions['M'].width = 12  # Physical Education
-    ws.column_dimensions['N'].width = 10  # Total
-    ws.column_dimensions['O'].width = 10  # Average
-    ws.column_dimensions['P'].width = 8   # GPA
-    ws.column_dimensions['Q'].width = 12  # Overall Grade
+    ws.column_dimensions['C'].width = 10  # Quran
+    ws.column_dimensions['D'].width = 10  # Hadith
+    ws.column_dimensions['E'].width = 10  # Arabic I
+    ws.column_dimensions['F'].width = 10  # Arabic II
+    ws.column_dimensions['G'].width = 10  # Aqaid
+    ws.column_dimensions['H'].width = 10  # English I
+    ws.column_dimensions['I'].width = 10  # English II
+    ws.column_dimensions['J'].width = 10  # Bangla I
+    ws.column_dimensions['K'].width = 10  # Bangla II
+    ws.column_dimensions['L'].width = 10  # Mathematics
+    ws.column_dimensions['M'].width = 13  # Islamic History
+    ws.column_dimensions['N'].width = 10  # ICT
+    ws.column_dimensions['O'].width = 10  # Mantiq
+    ws.column_dimensions['P'].width = 12  # Career Education
+    ws.column_dimensions['Q'].width = 12  # Physical Education
+    ws.column_dimensions['R'].width = 10  # Total
+    ws.column_dimensions['S'].width = 10  # Average
+    ws.column_dimensions['T'].width = 8   # GPA
+    ws.column_dimensions['U'].width = 12  # Overall Grade
 
 def create_subject_grades_sheet(wb, df):
     """Create Subject Grades sheet with individual subject grades"""
@@ -234,7 +230,7 @@ def create_subject_grades_sheet(wb, df):
     ws.row_dimensions[1].height = 30
     
     # Headers
-    headers = ['SL', 'Name', 'Quran', 'Arabic', 'Aqaid', 'English', 'Bangla', 
+    headers = ['SL', 'Name', 'Quran+Hadith', 'Arabic', 'Aqaid', 'English', 'Bangla', 
                'Math', 'History', 'ICT', 'Mantiq', 'Career', 'Physical', 'Overall GPA', 'Overall Grade']
     for col, header in enumerate(headers, 1):
         cell = ws.cell(row=2, column=col, value=header)
@@ -251,46 +247,46 @@ def create_subject_grades_sheet(wb, df):
         ws[f'A{row}'] = f"='Data Source'!A{data_row}"
         ws[f'B{row}'] = f"='Data Source'!B{data_row}"
         
-        # Subject grades with formulas
-        # Quran (200 marks)
-        ws[f'C{row}'] = f"=IF('Data Source'!C{data_row}/200*100>=80,\"A+\",IF('Data Source'!C{data_row}/200*100>=70,\"A\",IF('Data Source'!C{data_row}/200*100>=60,\"A-\",IF('Data Source'!C{data_row}/200*100>=50,\"B\",IF('Data Source'!C{data_row}/200*100>=40,\"C\",IF('Data Source'!C{data_row}/200*100>=33,\"D\",\"F\"))))))"
+        # Subject grades with formulas (using new column layout)
+        # Quran+Hadith (200 marks combined - C+D)
+        ws[f'C{row}'] = f"=IF(('Data Source'!C{data_row}+'Data Source'!D{data_row})/200*100>=80,\"A+\",IF(('Data Source'!C{data_row}+'Data Source'!D{data_row})/200*100>=70,\"A\",IF(('Data Source'!C{data_row}+'Data Source'!D{data_row})/200*100>=60,\"A-\",IF(('Data Source'!C{data_row}+'Data Source'!D{data_row})/200*100>=50,\"B\",IF(('Data Source'!C{data_row}+'Data Source'!D{data_row})/200*100>=40,\"C\",IF(('Data Source'!C{data_row}+'Data Source'!D{data_row})/200*100>=33,\"D\",\"F\"))))))"
         
-        # Arabic (200 marks)
-        ws[f'D{row}'] = f"=IF('Data Source'!D{data_row}/200*100>=80,\"A+\",IF('Data Source'!D{data_row}/200*100>=70,\"A\",IF('Data Source'!D{data_row}/200*100>=60,\"A-\",IF('Data Source'!D{data_row}/200*100>=50,\"B\",IF('Data Source'!D{data_row}/200*100>=40,\"C\",IF('Data Source'!D{data_row}/200*100>=33,\"D\",\"F\"))))))"
+        # Arabic (200 marks combined - E+F)
+        ws[f'D{row}'] = f"=IF(('Data Source'!E{data_row}+'Data Source'!F{data_row})/200*100>=80,\"A+\",IF(('Data Source'!E{data_row}+'Data Source'!F{data_row})/200*100>=70,\"A\",IF(('Data Source'!E{data_row}+'Data Source'!F{data_row})/200*100>=60,\"A-\",IF(('Data Source'!E{data_row}+'Data Source'!F{data_row})/200*100>=50,\"B\",IF(('Data Source'!E{data_row}+'Data Source'!F{data_row})/200*100>=40,\"C\",IF(('Data Source'!E{data_row}+'Data Source'!F{data_row})/200*100>=33,\"D\",\"F\"))))))"
         
-        # Aqaid (100 marks)
-        ws[f'E{row}'] = f"=IF('Data Source'!E{data_row}>=80,\"A+\",IF('Data Source'!E{data_row}>=70,\"A\",IF('Data Source'!E{data_row}>=60,\"A-\",IF('Data Source'!E{data_row}>=50,\"B\",IF('Data Source'!E{data_row}>=40,\"C\",IF('Data Source'!E{data_row}>=33,\"D\",\"F\"))))))"
+        # Aqaid (100 marks - G)
+        ws[f'E{row}'] = f"=IF('Data Source'!G{data_row}>=80,\"A+\",IF('Data Source'!G{data_row}>=70,\"A\",IF('Data Source'!G{data_row}>=60,\"A-\",IF('Data Source'!G{data_row}>=50,\"B\",IF('Data Source'!G{data_row}>=40,\"C\",IF('Data Source'!G{data_row}>=33,\"D\",\"F\"))))))"
         
-        # English (200 marks)
-        ws[f'F{row}'] = f"=IF('Data Source'!F{data_row}/200*100>=80,\"A+\",IF('Data Source'!F{data_row}/200*100>=70,\"A\",IF('Data Source'!F{data_row}/200*100>=60,\"A-\",IF('Data Source'!F{data_row}/200*100>=50,\"B\",IF('Data Source'!F{data_row}/200*100>=40,\"C\",IF('Data Source'!F{data_row}/200*100>=33,\"D\",\"F\"))))))"
+        # English (200 marks combined - H+I)
+        ws[f'F{row}'] = f"=IF(('Data Source'!H{data_row}+'Data Source'!I{data_row})/200*100>=80,\"A+\",IF(('Data Source'!H{data_row}+'Data Source'!I{data_row})/200*100>=70,\"A\",IF(('Data Source'!H{data_row}+'Data Source'!I{data_row})/200*100>=60,\"A-\",IF(('Data Source'!H{data_row}+'Data Source'!I{data_row})/200*100>=50,\"B\",IF(('Data Source'!H{data_row}+'Data Source'!I{data_row})/200*100>=40,\"C\",IF(('Data Source'!H{data_row}+'Data Source'!I{data_row})/200*100>=33,\"D\",\"F\"))))))"
         
-        # Bangla (200 marks)
-        ws[f'G{row}'] = f"=IF('Data Source'!G{data_row}/200*100>=80,\"A+\",IF('Data Source'!G{data_row}/200*100>=70,\"A\",IF('Data Source'!G{data_row}/200*100>=60,\"A-\",IF('Data Source'!G{data_row}/200*100>=50,\"B\",IF('Data Source'!G{data_row}/200*100>=40,\"C\",IF('Data Source'!G{data_row}/200*100>=33,\"D\",\"F\"))))))"
+        # Bangla (200 marks combined - J+K)
+        ws[f'G{row}'] = f"=IF(('Data Source'!J{data_row}+'Data Source'!K{data_row})/200*100>=80,\"A+\",IF(('Data Source'!J{data_row}+'Data Source'!K{data_row})/200*100>=70,\"A\",IF(('Data Source'!J{data_row}+'Data Source'!K{data_row})/200*100>=60,\"A-\",IF(('Data Source'!J{data_row}+'Data Source'!K{data_row})/200*100>=50,\"B\",IF(('Data Source'!J{data_row}+'Data Source'!K{data_row})/200*100>=40,\"C\",IF(('Data Source'!J{data_row}+'Data Source'!K{data_row})/200*100>=33,\"D\",\"F\"))))))"
         
-        # Mathematics (100 marks)
-        ws[f'H{row}'] = f"=IF('Data Source'!H{data_row}>=80,\"A+\",IF('Data Source'!H{data_row}>=70,\"A\",IF('Data Source'!H{data_row}>=60,\"A-\",IF('Data Source'!H{data_row}>=50,\"B\",IF('Data Source'!H{data_row}>=40,\"C\",IF('Data Source'!H{data_row}>=33,\"D\",\"F\"))))))"
+        # Mathematics (100 marks - L)
+        ws[f'H{row}'] = f"=IF('Data Source'!L{data_row}>=80,\"A+\",IF('Data Source'!L{data_row}>=70,\"A\",IF('Data Source'!L{data_row}>=60,\"A-\",IF('Data Source'!L{data_row}>=50,\"B\",IF('Data Source'!L{data_row}>=40,\"C\",IF('Data Source'!L{data_row}>=33,\"D\",\"F\"))))))"
         
-        # Islamic History (100 marks)
-        ws[f'I{row}'] = f"=IF('Data Source'!I{data_row}>=80,\"A+\",IF('Data Source'!I{data_row}>=70,\"A\",IF('Data Source'!I{data_row}>=60,\"A-\",IF('Data Source'!I{data_row}>=50,\"B\",IF('Data Source'!I{data_row}>=40,\"C\",IF('Data Source'!I{data_row}>=33,\"D\",\"F\"))))))"
+        # Islamic History (100 marks - M)
+        ws[f'I{row}'] = f"=IF('Data Source'!M{data_row}>=80,\"A+\",IF('Data Source'!M{data_row}>=70,\"A\",IF('Data Source'!M{data_row}>=60,\"A-\",IF('Data Source'!M{data_row}>=50,\"B\",IF('Data Source'!M{data_row}>=40,\"C\",IF('Data Source'!M{data_row}>=33,\"D\",\"F\"))))))"
         
-        # ICT (100 marks)
-        ws[f'J{row}'] = f"=IF('Data Source'!J{data_row}>=80,\"A+\",IF('Data Source'!J{data_row}>=70,\"A\",IF('Data Source'!J{data_row}>=60,\"A-\",IF('Data Source'!J{data_row}>=50,\"B\",IF('Data Source'!J{data_row}>=40,\"C\",IF('Data Source'!J{data_row}>=33,\"D\",\"F\"))))))"
+        # ICT (100 marks - N)
+        ws[f'J{row}'] = f"=IF('Data Source'!N{data_row}>=80,\"A+\",IF('Data Source'!N{data_row}>=70,\"A\",IF('Data Source'!N{data_row}>=60,\"A-\",IF('Data Source'!N{data_row}>=50,\"B\",IF('Data Source'!N{data_row}>=40,\"C\",IF('Data Source'!N{data_row}>=33,\"D\",\"F\"))))))"
         
-        # Mantiq (100 marks)
-        ws[f'K{row}'] = f"=IF('Data Source'!K{data_row}>=80,\"A+\",IF('Data Source'!K{data_row}>=70,\"A\",IF('Data Source'!K{data_row}>=60,\"A-\",IF('Data Source'!K{data_row}>=50,\"B\",IF('Data Source'!K{data_row}>=40,\"C\",IF('Data Source'!K{data_row}>=33,\"D\",\"F\"))))))"
+        # Mantiq (100 marks - O)
+        ws[f'K{row}'] = f"=IF('Data Source'!O{data_row}>=80,\"A+\",IF('Data Source'!O{data_row}>=70,\"A\",IF('Data Source'!O{data_row}>=60,\"A-\",IF('Data Source'!O{data_row}>=50,\"B\",IF('Data Source'!O{data_row}>=40,\"C\",IF('Data Source'!O{data_row}>=33,\"D\",\"F\"))))))"
         
-        # Career Education (Pass/Fail)
-        ws[f'L{row}'] = f"=IF('Data Source'!L{data_row}>=33,\"Pass\",\"Fail\")"
+        # Career Education (Pass/Fail - P)
+        ws[f'L{row}'] = f"=IF('Data Source'!P{data_row}>=33,\"Pass\",\"Fail\")"
         
-        # Physical Education (Pass/Fail)
-        ws[f'M{row}'] = f"=IF('Data Source'!M{data_row}>=33,\"Pass\",\"Fail\")"
+        # Physical Education (Pass/Fail - Q)
+        ws[f'M{row}'] = f"=IF('Data Source'!Q{data_row}>=33,\"Pass\",\"Fail\")"
         
-        # Overall GPA from Data Source
-        ws[f'N{row}'] = f"='Data Source'!P{data_row}"
+        # Overall GPA from Data Source (column T)
+        ws[f'N{row}'] = f"='Data Source'!T{data_row}"
         ws[f'N{row}'].number_format = '0.00'
         
-        # Overall Grade from Data Source
-        ws[f'O{row}'] = f"='Data Source'!Q{data_row}"
+        # Overall Grade from Data Source (column U)
+        ws[f'O{row}'] = f"='Data Source'!U{data_row}"
         
         # Alignment
         for col in ['A', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O']:
@@ -325,12 +321,12 @@ def create_dashboard_sheet(wb, df):
     ws['B5'] = 'Total Students:'
     ws['C5'] = "=COUNTA('Data Source'!B:B)-1"
     ws['E5'] = 'Average GPA:'
-    ws['F5'] = "=IFERROR(ROUND(AVERAGE('Data Source'!P:P),2), 0)"  # Column P is GPA
+    ws['F5'] = "=IFERROR(ROUND(AVERAGE('Data Source'!T:T),2), 0)"  # Column T is GPA
     ws['H5'] = 'Highest Total:'
-    ws['I5'] = "=MAX('Data Source'!N:N)"  # Column N is Total
+    ws['I5'] = "=MAX('Data Source'!R:R)"  # Column R is Total
     ws['K5'] = 'Pass Rate:'
     # Count GPA > 0 divided by total - format as percentage
-    ws['L5'] = '=IF(C5>0,COUNTIF(\'Data Source\'!P:P,">0")/C5,0)'  # Column P is GPA
+    ws['L5'] = '=IF(C5>0,COUNTIF(\'Data Source\'!T:T,">0")/C5,0)'  # Column T is GPA
     ws['L5'].number_format = '0.0%'
 
     # Style the label cells
@@ -428,10 +424,10 @@ def create_dashboard_sheet(wb, df):
         ws[f'G{row}'] = i
         ws[f'G{row}'].alignment = Alignment(horizontal='center')
         
-        # Reference the specific student's name and GPA from Data Source (column P)
+        # Reference the specific student's name and GPA from Data Source (column T)
         # This way if their marks change, their GPA updates
         ws[f'H{row}'] = f"='Data Source'!B{data_source_row}"
-        ws[f'I{row}'] = f"='Data Source'!P{data_source_row}"
+        ws[f'I{row}'] = f"='Data Source'!T{data_source_row}"
         ws[f'I{row}'].number_format = '0.00'
         ws[f'I{row}'].alignment = Alignment(horizontal='center')
         
@@ -483,51 +479,56 @@ def generate_excel_file(filename='Academic_Results_Dashboard.xlsx'):
     for r in dataframe_to_rows(df, index=False, header=True):
         ws.append(r)
     
-    # Add Total, Average, GPA, Overall Grade columns (columns N-Q)
-    # Subject columns: C-M (11 subjects)
-    # Summary columns: N=Total, O=Average, P=GPA, Q=Overall Grade
+    # Add Total, Average, GPA, Overall Grade columns (columns R-U)
+    # Subject columns: C-Q (15 subjects - 4 combined subjects split into pairs)
+    # Summary columns: R=Total, S=Average, T=GPA, U=Overall Grade
     
     # Summary columns
-    ws['N1'] = 'Total'
-    ws['O1'] = 'Average'
-    ws['P1'] = 'GPA'
-    ws['Q1'] = 'Overall Grade'
+    ws['R1'] = 'Total'
+    ws['S1'] = 'Average'
+    ws['T1'] = 'GPA'
+    ws['U1'] = 'Overall Grade'
     
     # Add formulas for each student row (rows 2 to len(df)+1)
     for row in range(2, len(df) + 2):
-        # Total: Sum of compulsory subjects only (C:J, excluding Mantiq K and continuous assessment L,M)
-        # Compulsory: Quran(C), Arabic(D), Aqaid(E), English(F), Bangla(G), Math(H), Islamic History(I), ICT(J)
-        ws[f'N{row}'] = f'=SUM(C{row}:J{row})'
+        # New column structure:
+        # C=Quran(100), D=Hadith(100), E=Arabic I(100), F=Arabic II(100), G=Aqaid(100), 
+        # H=English I(100), I=English II(100), J=Bangla I(100), K=Bangla II(100), 
+        # L=Math(100), M=Islamic History(100), N=ICT(100), O=Mantiq(100), P=Career(100), Q=Physical(100)
         
-        # Average: Average of compulsory subjects
-        ws[f'O{row}'] = f'=ROUND(N{row}/8,2)'
-        ws[f'O{row}'].number_format = '0.00'
+        # Total: Sum of compulsory subjects (8 subjects but 12 columns due to 4 combined subjects)
+        # Compulsory: Quran+Hadith, Arabic I+II, Aqaid, English I+II, Bangla I+II, Math, Islamic History, ICT
+        # That's columns C through N (excluding O=Mantiq, P=Career, Q=Physical)
+        ws[f'R{row}'] = f'=SUM(C{row}:N{row})'
+        
+        # Average: Average of compulsory subjects (total marks = 1200, so divide by 12 columns then multiply by 100/100)
+        # Actually simpler: Total/12 to get average per 100-mark subject
+        ws[f'S{row}'] = f'=ROUND(R{row}/12,2)'
+        ws[f'S{row}'].number_format = '0.00'
         
         # GPA: Dakhil curriculum calculation
-        # Helper function to calculate grade point for each subject
-        # For 100-mark subjects: percentage-based
-        # For 200-mark subjects: percentage-based  
-        # C=Quran(200), D=Arabic(200), E=Aqaid(100), F=English(200), G=Bangla(200), H=Math(100), I=Islamic History(100), J=ICT(100)
-        
-        # Create grade point calculation for each subject
+        # For combined subjects, we need to add the two columns and treat as 200 marks
         # GP formula for 100-mark subject: IF(marks>=80,5,IF(marks>=70,4,IF(marks>=60,3.5,IF(marks>=50,3,IF(marks>=40,2,IF(marks>=33,1,0))))))
-        # GP formula for 200-mark subject: IF(marks/200*100>=80,5,IF(marks/200*100>=70,4,IF(marks/200*100>=60,3.5,IF(marks/200*100>=50,3,IF(marks/200*100>=40,2,IF(marks/200*100>=33,1,0))))))
+        # GP formula for 200-mark subject: IF(marks/200*100>=80,5,IF(marks/200*100>=70,4,...
         
-        gp_quran = f'IF(C{row}/200*100>=80,5,IF(C{row}/200*100>=70,4,IF(C{row}/200*100>=60,3.5,IF(C{row}/200*100>=50,3,IF(C{row}/200*100>=40,2,IF(C{row}/200*100>=33,1,0))))))'
-        gp_arabic = f'IF(D{row}/200*100>=80,5,IF(D{row}/200*100>=70,4,IF(D{row}/200*100>=60,3.5,IF(D{row}/200*100>=50,3,IF(D{row}/200*100>=40,2,IF(D{row}/200*100>=33,1,0))))))'
-        gp_aqaid = f'IF(E{row}>=80,5,IF(E{row}>=70,4,IF(E{row}>=60,3.5,IF(E{row}>=50,3,IF(E{row}>=40,2,IF(E{row}>=33,1,0))))))'
-        gp_english = f'IF(F{row}/200*100>=80,5,IF(F{row}/200*100>=70,4,IF(F{row}/200*100>=60,3.5,IF(F{row}/200*100>=50,3,IF(F{row}/200*100>=40,2,IF(F{row}/200*100>=33,1,0))))))'
-        gp_bangla = f'IF(G{row}/200*100>=80,5,IF(G{row}/200*100>=70,4,IF(G{row}/200*100>=60,3.5,IF(G{row}/200*100>=50,3,IF(G{row}/200*100>=40,2,IF(G{row}/200*100>=33,1,0))))))'
-        gp_math = f'IF(H{row}>=80,5,IF(H{row}>=70,4,IF(H{row}>=60,3.5,IF(H{row}>=50,3,IF(H{row}>=40,2,IF(H{row}>=33,1,0))))))'
-        gp_history = f'IF(I{row}>=80,5,IF(I{row}>=70,4,IF(I{row}>=60,3.5,IF(I{row}>=50,3,IF(I{row}>=40,2,IF(I{row}>=33,1,0))))))'
-        gp_ict = f'IF(J{row}>=80,5,IF(J{row}>=70,4,IF(J{row}>=60,3.5,IF(J{row}>=50,3,IF(J{row}>=40,2,IF(J{row}>=33,1,0))))))'
-        gp_mantiq = f'IF(K{row}>=80,5,IF(K{row}>=70,4,IF(K{row}>=60,3.5,IF(K{row}>=50,3,IF(K{row}>=40,2,IF(K{row}>=33,1,0))))))'
+        # Combined subjects (add two columns, treat as 200 marks)
+        gp_quran_hadith = f'IF((C{row}+D{row})/200*100>=80,5,IF((C{row}+D{row})/200*100>=70,4,IF((C{row}+D{row})/200*100>=60,3.5,IF((C{row}+D{row})/200*100>=50,3,IF((C{row}+D{row})/200*100>=40,2,IF((C{row}+D{row})/200*100>=33,1,0))))))'
+        gp_arabic = f'IF((E{row}+F{row})/200*100>=80,5,IF((E{row}+F{row})/200*100>=70,4,IF((E{row}+F{row})/200*100>=60,3.5,IF((E{row}+F{row})/200*100>=50,3,IF((E{row}+F{row})/200*100>=40,2,IF((E{row}+F{row})/200*100>=33,1,0))))))'
+        gp_aqaid = f'IF(G{row}>=80,5,IF(G{row}>=70,4,IF(G{row}>=60,3.5,IF(G{row}>=50,3,IF(G{row}>=40,2,IF(G{row}>=33,1,0))))))'
+        gp_english = f'IF((H{row}+I{row})/200*100>=80,5,IF((H{row}+I{row})/200*100>=70,4,IF((H{row}+I{row})/200*100>=60,3.5,IF((H{row}+I{row})/200*100>=50,3,IF((H{row}+I{row})/200*100>=40,2,IF((H{row}+I{row})/200*100>=33,1,0))))))'
+        gp_bangla = f'IF((J{row}+K{row})/200*100>=80,5,IF((J{row}+K{row})/200*100>=70,4,IF((J{row}+K{row})/200*100>=60,3.5,IF((J{row}+K{row})/200*100>=50,3,IF((J{row}+K{row})/200*100>=40,2,IF((J{row}+K{row})/200*100>=33,1,0))))))'
+        gp_math = f'IF(L{row}>=80,5,IF(L{row}>=70,4,IF(L{row}>=60,3.5,IF(L{row}>=50,3,IF(L{row}>=40,2,IF(L{row}>=33,1,0))))))'
+        gp_history = f'IF(M{row}>=80,5,IF(M{row}>=70,4,IF(M{row}>=60,3.5,IF(M{row}>=50,3,IF(M{row}>=40,2,IF(M{row}>=33,1,0))))))'
+        gp_ict = f'IF(N{row}>=80,5,IF(N{row}>=70,4,IF(N{row}>=60,3.5,IF(N{row}>=50,3,IF(N{row}>=40,2,IF(N{row}>=33,1,0))))))'
+        gp_mantiq = f'IF(O{row}>=80,5,IF(O{row}>=70,4,IF(O{row}>=60,3.5,IF(O{row}>=50,3,IF(O{row}>=40,2,IF(O{row}>=33,1,0))))))'
         
         # Check if any compulsory subject or continuous assessment failed
-        fail_check = f'OR(C{row}<66,D{row}<66,E{row}<33,F{row}<66,G{row}<66,H{row}<33,I{row}<33,J{row}<33,L{row}<33,M{row}<33)'
+        # Combined subjects need at least 66 marks total (33% of 200)
+        # Single 100-mark subjects need at least 33 marks (33% of 100)
+        fail_check = f'OR((C{row}+D{row})<66,(E{row}+F{row})<66,G{row}<33,(H{row}+I{row})<66,(J{row}+K{row})<66,L{row}<33,M{row}<33,N{row}<33,P{row}<33,Q{row}<33)'
         
         # Base GPA = average of 8 compulsory subjects
-        base_gpa = f'({gp_quran}+{gp_arabic}+{gp_aqaid}+{gp_english}+{gp_bangla}+{gp_math}+{gp_history}+{gp_ict})/8'
+        base_gpa = f'({gp_quran_hadith}+{gp_arabic}+{gp_aqaid}+{gp_english}+{gp_bangla}+{gp_math}+{gp_history}+{gp_ict})/8'
         
         # Additional subject bonus: If Mantiq GP >= 2, add (Mantiq GP - 2) / 8
         mantiq_bonus = f'IF({gp_mantiq}>=2,({gp_mantiq}-2)/8,0)'
@@ -535,16 +536,16 @@ def generate_excel_file(filename='Academic_Results_Dashboard.xlsx'):
         # Final GPA formula
         gpa_formula = f'=IF({fail_check},0,MIN(5,ROUND({base_gpa}+{mantiq_bonus},2)))'
         
-        ws[f'P{row}'] = gpa_formula
-        ws[f'P{row}'].number_format = '0.00'
+        ws[f'T{row}'] = gpa_formula
+        ws[f'T{row}'].number_format = '0.00'
         
         # Overall Grade: Based on GPA value
-        grade_formula = f'=IF(P{row}>=5,"A+",IF(P{row}>=4,"A",IF(P{row}>=3.5,"A-",IF(P{row}>=3,"B",IF(P{row}>=2,"C",IF(P{row}>=1,"D","F"))))))'
-        ws[f'Q{row}'] = grade_formula
+        grade_formula = f'=IF(T{row}>=5,"A+",IF(T{row}>=4,"A",IF(T{row}>=3.5,"A-",IF(T{row}>=3,"B",IF(T{row}>=2,"C",IF(T{row}>=1,"D","F"))))))'
+        ws[f'U{row}'] = grade_formula
         
         # Center align GPA and Overall Grade
-        ws[f'P{row}'].alignment = Alignment(horizontal='center')
-        ws[f'Q{row}'].alignment = Alignment(horizontal='center')
+        ws[f'T{row}'].alignment = Alignment(horizontal='center')
+        ws[f'U{row}'].alignment = Alignment(horizontal='center')
     
     # Style Data Source sheet
     style_data_source_sheet(ws, df)
