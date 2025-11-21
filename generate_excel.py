@@ -44,14 +44,15 @@ def calculate_gpa_dakhil(row):
     Continuous Assessment (Career & Physical Education):
     - Pass/Fail only, doesn't affect GPA calculation
     """
-    # Compulsory subjects for Dakhil curriculum (8 subjects, 4 combined = 12 columns)
+    # Compulsory subjects for Dakhil curriculum (8 subjects, 4 combined + 1 split into 4 = 16 columns)
     # Combined subjects are stored in two columns but calculated together
+    # Bangla is split into 4 columns: Bangla_I_MCQ, Bangla_I_Written, Bangla_II_MCQ, Bangla_II_Written
     compulsory_subjects = {
         'Quran_Hadith': ('Quran', 'Hadith', 200),  # (col1, col2, total_marks)
         'Arabic': ('Arabic_I', 'Arabic_II', 200),
         'Aqaid': ('Aqaid', None, 100),  # Single column subjects
         'English': ('English_I', 'English_II', 200),
-        'Bangla': ('Bangla_I', 'Bangla_II', 200),
+        'Bangla': ('Bangla_I_MCQ', None, 200),  # Will be handled specially
         'Mathematics': ('Mathematics', None, 100),
         'Islamic_History': ('Islamic_History', None, 100),
         'ICT': ('ICT', None, 50)
@@ -65,11 +66,34 @@ def calculate_gpa_dakhil(row):
             marks = row[col1] + row[col2]
         else:
             marks = row[col1]
-        # ICT special case: pass based on 33% of 25 marks (8.25)
+        
+        # Special cases for pass thresholds
         if subject_name == 'ICT':
+            # ICT: pass based on 33% of 25 marks (8.25)
             min_passing = 25 * 0.33
+        elif subject_name == 'Bangla':
+            # Bangla special: 4 columns (Bangla_I_MCQ, Bangla_I_Written, Bangla_II_MCQ, Bangla_II_Written)
+            # Pass if: (Each MCQ≥10 AND Each Written≥23) OR (Total MCQ≥20 AND Total Written≥46)
+            b1_mcq = row['Bangla_I_MCQ']
+            b1_written = row['Bangla_I_Written']
+            b2_mcq = row['Bangla_II_MCQ']
+            b2_written = row['Bangla_II_Written']
+            total_mcq = b1_mcq + b2_mcq
+            total_written = b1_written + b2_written
+            # Individual condition: Each part meets minimums
+            individual_pass = (b1_mcq >= 10 and b1_written >= 23 and b2_mcq >= 10 and b2_written >= 23)
+            # Combined condition: Totals meet minimums
+            combined_pass = (total_mcq >= 20 and total_written >= 46)
+            # Fail if neither condition is met
+            if not (individual_pass or combined_pass):
+                return 0.0
+            # Calculate marks for GPA (total of all 4 columns)
+            marks = b1_mcq + b1_written + b2_mcq + b2_written
+            # Skip the general check below for Bangla
+            continue
         else:
             min_passing = full_marks * 0.33
+        
         if marks < min_passing:
             return 0.0
     
@@ -81,8 +105,11 @@ def calculate_gpa_dakhil(row):
     grade_points = []
     for subject_name, subject_info in compulsory_subjects.items():
         col1, col2, full_marks = subject_info
+        # Handle Bangla special case (4 columns)
+        if subject_name == 'Bangla':
+            marks = row['Bangla_I_MCQ'] + row['Bangla_I_Written'] + row['Bangla_II_MCQ'] + row['Bangla_II_Written']
         # If combined subject, add both columns
-        if col2:
+        elif col2:
             marks = row[col1] + row[col2]
         else:
             marks = row[col1]
@@ -136,8 +163,10 @@ def create_data_source():
         'Aqaid': [random.randint(60, 95) for _ in range(20)],  # 100 marks
         'English_I': [random.randint(55, 95) for _ in range(20)],  # 100 marks
         'English_II': [random.randint(60, 90) for _ in range(20)],  # 100 marks
-        'Bangla_I': [random.randint(60, 95) for _ in range(20)],  # 100 marks
-        'Bangla_II': [random.randint(65, 95) for _ in range(20)],  # 100 marks
+        'Bangla_I_MCQ': [random.randint(8, 28) for _ in range(20)],  # 30 marks (pass: 10 individual or 20 combined)
+        'Bangla_I_Written': [random.randint(20, 65) for _ in range(20)],  # 70 marks (pass: 23 individual or 46 combined)
+        'Bangla_II_MCQ': [random.randint(8, 28) for _ in range(20)],  # 30 marks (pass: 10 individual or 20 combined)
+        'Bangla_II_Written': [random.randint(20, 65) for _ in range(20)],  # 70 marks (pass: 23 individual or 46 combined)
         'Mathematics': [random.randint(55, 95) for _ in range(20)],  # 100 marks
         'Islamic_History': [random.randint(60, 90) for _ in range(20)],  # 100 marks
         'ICT': [random.randint(30, 48) for _ in range(20)],  # 50 marks (pass on 33% of 25 = 8.25)
@@ -153,7 +182,8 @@ def create_data_source():
     # dynamic when users edit marks directly in Excel.
     df = pd.DataFrame(data)
     subjects = ['Quran', 'Hadith', 'Arabic_I', 'Arabic_II', 'Aqaid', 'English_I', 'English_II', 
-                'Bangla_I', 'Bangla_II', 'Mathematics', 'Islamic_History', 'ICT', 'Mantiq', 'Career_Education', 'Physical_Education']
+                'Bangla_I_MCQ', 'Bangla_I_Written', 'Bangla_II_MCQ', 'Bangla_II_Written', 
+                'Mathematics', 'Islamic_History', 'ICT', 'Mantiq', 'Career_Education', 'Physical_Education']
     return df[(['SL', 'Name'] + subjects)]
 
 def style_data_source_sheet(ws, df):
@@ -483,32 +513,34 @@ def generate_excel_file(filename='Academic_Results_Dashboard.xlsx'):
     for r in dataframe_to_rows(df, index=False, header=True):
         ws.append(r)
     
-    # Add Total, Average, GPA, Overall Grade columns (columns R-U)
-    # Subject columns: C-Q (15 subjects - 4 combined subjects split into pairs)
-    # Summary columns: R=Total, S=Average, T=GPA, U=Overall Grade
+    # Add Total, Average, GPA, Overall Grade columns (columns T-W)
+    # Subject columns: C-S (17 subjects - 3 combined subjects split into pairs + 1 split into 4)
+    # Summary columns: T=Total, U=Average, V=GPA, W=Overall Grade
     
     # Summary columns
-    ws['R1'] = 'Total'
-    ws['S1'] = 'Average'
-    ws['T1'] = 'GPA'
-    ws['U1'] = 'Overall Grade'
+    ws['T1'] = 'Total'
+    ws['U1'] = 'Average'
+    ws['V1'] = 'GPA'
+    ws['W1'] = 'Overall Grade'
     
     # Add formulas for each student row (rows 2 to len(df)+1)
     for row in range(2, len(df) + 2):
         # New column structure:
         # C=Quran(100), D=Hadith(100), E=Arabic I(100), F=Arabic II(100), G=Aqaid(100), 
-        # H=English I(100), I=English II(100), J=Bangla I(100), K=Bangla II(100), 
-        # L=Math(100), M=Islamic History(100), N=ICT(100), O=Mantiq(100), P=Career(100), Q=Physical(100)
+        # H=English I(100), I=English II(100), J=Bangla_I_MCQ(50), K=Bangla_I_Written(50), 
+        # L=Bangla_II_MCQ(50), M=Bangla_II_Written(50), N=Math(100), O=Islamic History(100), 
+        # P=ICT(50), Q=Mantiq(100), R=Career(100), S=Physical(100)
         
-        # Total: Sum of compulsory subjects (8 subjects but 12 columns due to 4 combined subjects)
-        # Compulsory: Quran+Hadith(200), Arabic I+II(200), Aqaid(100), English I+II(200), Bangla I+II(200), Math(100), Islamic History(100), ICT(50)
-        # That's columns C through N (excluding O=Mantiq, P=Career, Q=Physical)
+        # Total: Sum of compulsory subjects (8 subjects but 14 columns due to combined/split subjects)
+        # Compulsory: Quran+Hadith(200), Arabic I+II(200), Aqaid(100), English I+II(200), 
+        # Bangla_I_MCQ+Bangla_I_Written+Bangla_II_MCQ+Bangla_II_Written(200), Math(100), Islamic History(100), ICT(50)
+        # That's columns C through P (excluding Q=Mantiq, R=Career, S=Physical)
         # Total marks = 1150 (not 1200 due to ICT being 50)
-        ws[f'R{row}'] = f'=SUM(C{row}:N{row})'
+        ws[f'T{row}'] = f'=SUM(C{row}:P{row})'
         
         # Average: Total/11.5 to normalize (1150/11.5 = 100-mark equivalent)
-        ws[f'S{row}'] = f'=ROUND(R{row}/11.5,2)'
-        ws[f'S{row}'].number_format = '0.00'
+        ws[f'U{row}'] = f'=ROUND(T{row}/11.5,2)'
+        ws[f'U{row}'].number_format = '0.00'
         
         # GPA: Dakhil curriculum calculation
         # For combined subjects, we need to add the two columns and treat as 200 marks
@@ -531,7 +563,8 @@ def generate_excel_file(filename='Academic_Results_Dashboard.xlsx'):
         # Combined subjects need at least 66 marks total (33% of 200)
         # Single 100-mark subjects need at least 33 marks (33% of 100)
         # ICT: pass on 33% of 25 = 8.25 marks
-        fail_check = f'OR((C{row}+D{row})<66,(E{row}+F{row})<66,G{row}<33,(H{row}+I{row})<66,(J{row}+K{row})<66,L{row}<33,M{row}<33,N{row}<8.25,P{row}<33,Q{row}<33)'
+        # Bangla: Pass if (Each MCQ≥10 AND Each Written≥23) OR (Total MCQ≥20 AND Total Written≥46)
+        fail_check = f'OR((C{row}+D{row})<66,(E{row}+F{row})<66,G{row}<33,(H{row}+I{row})<66,NOT(OR(AND(J{row}>=10,K{row}>=23,L{row}>=10,M{row}>=23),AND((J{row}+L{row})>=20,(K{row}+M{row})>=46))),N{row}<33,O{row}<33,P{row}<8.25,R{row}<33,S{row}<33)'
         
         # Base GPA = average of 8 compulsory subjects
         base_gpa = f'({gp_quran_hadith}+{gp_arabic}+{gp_aqaid}+{gp_english}+{gp_bangla}+{gp_math}+{gp_history}+{gp_ict})/8'
