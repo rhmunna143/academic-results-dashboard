@@ -359,6 +359,112 @@ def create_subject_grades_sheet(wb, df):
     ws.column_dimensions['L'].width = 10
     ws.column_dimensions['M'].width = 12
 
+def create_grade_filtered_sheet(wb, grade_filter, sheet_name):
+    """Create a sheet showing only students with a specific grade
+    
+    Args:
+        wb: Workbook object
+        grade_filter: Grade to filter (e.g., 'A+', 'F')
+        sheet_name: Name for the new sheet
+    """
+    ws = wb.create_sheet(sheet_name)
+    
+    # Title
+    ws.merge_cells('A1:M1')
+    title_cell = ws['A1']
+    title_cell.value = f'STUDENTS WITH GRADE {grade_filter}'
+    title_cell.font = Font(size=16, bold=True, color="FFFFFF")
+    if grade_filter == 'A+':
+        title_cell.fill = PatternFill(start_color="00B050", end_color="00B050", fill_type="solid")
+    else:
+        title_cell.fill = PatternFill(start_color="C00000", end_color="C00000", fill_type="solid")
+    title_cell.alignment = Alignment(horizontal='center', vertical='center')
+    ws.row_dimensions[1].height = 30
+    
+    # Headers - Subject Grades only
+    headers = ['SL', 'Name', 
+               'Quran+Hadith', 'Arabic', 'Aqaid', 'English', 'Bangla', 
+               'Math', 'History', 'ICT', 'Agriculture',
+               'Overall GPA', 'Overall Grade']
+    
+    for col, header in enumerate(headers, 1):
+        cell = ws.cell(row=2, column=col, value=header)
+        cell.font = Font(bold=True, color="FFFFFF")
+        cell.fill = PatternFill(start_color="5B9BD5", end_color="5B9BD5", fill_type="solid")
+        cell.alignment = Alignment(horizontal='center', vertical='center')
+    
+    display_row = 3
+    
+    # Create 1000 rows to check all potential students
+    for data_row in range(2, 1002):
+        # Check if this Data Source row has the matching grade
+        grade_check = f"'Data Source'!X{data_row}=\"{grade_filter}\""
+        
+        # Only show data if grade matches AND name is not empty
+        combined_check = f"AND('Data Source'!B{data_row}<>\"\",{grade_check})"
+        
+        # SL - Use a running counter that only increments for matching grades
+        ws[f'A{display_row}'] = f'=IF({combined_check},COUNTIF(\'Data Source\'!$X$2:X{data_row},"{grade_filter}"),"")'
+        ws[f'A{display_row}'].alignment = Alignment(horizontal='center')
+        
+        # Name
+        ws[f'B{display_row}'] = f'=IF({combined_check},\'Data Source\'!B{data_row},"")'
+        
+        # Quran+Hadith Grade (from helper column AC GP, convert to grade)
+        ws[f'C{display_row}'] = f'=IF({combined_check},IF(\'Data Source\'!AC{data_row}>=5,"A+",IF(\'Data Source\'!AC{data_row}>=4,"A",IF(\'Data Source\'!AC{data_row}>=3.5,"A-",IF(\'Data Source\'!AC{data_row}>=3,"B",IF(\'Data Source\'!AC{data_row}>=2,"C",IF(\'Data Source\'!AC{data_row}>=1,"D","F")))))),"")'
+        ws[f'C{display_row}'].alignment = Alignment(horizontal='center')
+        
+        # Arabic Grade
+        ws[f'D{display_row}'] = f'=IF({combined_check},IF(\'Data Source\'!AD{data_row}>=5,"A+",IF(\'Data Source\'!AD{data_row}>=4,"A",IF(\'Data Source\'!AD{data_row}>=3.5,"A-",IF(\'Data Source\'!AD{data_row}>=3,"B",IF(\'Data Source\'!AD{data_row}>=2,"C",IF(\'Data Source\'!AD{data_row}>=1,"D","F")))))),"")'
+        ws[f'D{display_row}'].alignment = Alignment(horizontal='center')
+        
+        # Aqaid Grade
+        ws[f'E{display_row}'] = f'=IF({combined_check},IF(\'Data Source\'!AE{data_row}>=5,"A+",IF(\'Data Source\'!AE{data_row}>=4,"A",IF(\'Data Source\'!AE{data_row}>=3.5,"A-",IF(\'Data Source\'!AE{data_row}>=3,"B",IF(\'Data Source\'!AE{data_row}>=2,"C",IF(\'Data Source\'!AE{data_row}>=1,"D","F")))))),"")'
+        ws[f'E{display_row}'].alignment = Alignment(horizontal='center')
+        
+        # English Grade
+        ws[f'F{display_row}'] = f'=IF({combined_check},IF(\'Data Source\'!AF{data_row}>=5,"A+",IF(\'Data Source\'!AF{data_row}>=4,"A",IF(\'Data Source\'!AF{data_row}>=3.5,"A-",IF(\'Data Source\'!AF{data_row}>=3,"B",IF(\'Data Source\'!AF{data_row}>=2,"C",IF(\'Data Source\'!AF{data_row}>=1,"D","F")))))),"")'
+        ws[f'F{display_row}'].alignment = Alignment(horizontal='center')
+        
+        # Bangla Grade
+        ws[f'G{display_row}'] = f'=IF({combined_check},IF(\'Data Source\'!AG{data_row}>=5,"A+",IF(\'Data Source\'!AG{data_row}>=4,"A",IF(\'Data Source\'!AG{data_row}>=3.5,"A-",IF(\'Data Source\'!AG{data_row}>=3,"B",IF(\'Data Source\'!AG{data_row}>=2,"C",IF(\'Data Source\'!AG{data_row}>=1,"D","F")))))),"")'
+        ws[f'G{display_row}'].alignment = Alignment(horizontal='center')
+        
+        # Math Grade
+        ws[f'H{display_row}'] = f'=IF({combined_check},IF(\'Data Source\'!AH{data_row}>=5,"A+",IF(\'Data Source\'!AH{data_row}>=4,"A",IF(\'Data Source\'!AH{data_row}>=3.5,"A-",IF(\'Data Source\'!AH{data_row}>=3,"B",IF(\'Data Source\'!AH{data_row}>=2,"C",IF(\'Data Source\'!AH{data_row}>=1,"D","F")))))),"")'
+        ws[f'H{display_row}'].alignment = Alignment(horizontal='center')
+        
+        # History Grade
+        ws[f'I{display_row}'] = f'=IF({combined_check},IF(\'Data Source\'!AI{data_row}>=5,"A+",IF(\'Data Source\'!AI{data_row}>=4,"A",IF(\'Data Source\'!AI{data_row}>=3.5,"A-",IF(\'Data Source\'!AI{data_row}>=3,"B",IF(\'Data Source\'!AI{data_row}>=2,"C",IF(\'Data Source\'!AI{data_row}>=1,"D","F")))))),"")'
+        ws[f'I{display_row}'].alignment = Alignment(horizontal='center')
+        
+        # ICT Grade
+        ws[f'J{display_row}'] = f'=IF({combined_check},IF(\'Data Source\'!AJ{data_row}>=5,"A+",IF(\'Data Source\'!AJ{data_row}>=4,"A",IF(\'Data Source\'!AJ{data_row}>=3.5,"A-",IF(\'Data Source\'!AJ{data_row}>=3,"B",IF(\'Data Source\'!AJ{data_row}>=2,"C",IF(\'Data Source\'!AJ{data_row}>=1,"D","F")))))),"")'
+        ws[f'J{display_row}'].alignment = Alignment(horizontal='center')
+        
+        # Agriculture Grade
+        ws[f'K{display_row}'] = f'=IF({combined_check},IF(\'Data Source\'!AK{data_row}>=5,"A+",IF(\'Data Source\'!AK{data_row}>=4,"A",IF(\'Data Source\'!AK{data_row}>=3.5,"A-",IF(\'Data Source\'!AK{data_row}>=3,"B",IF(\'Data Source\'!AK{data_row}>=2,"C",IF(\'Data Source\'!AK{data_row}>=1,"D","F")))))),"")'
+        ws[f'K{display_row}'].alignment = Alignment(horizontal='center')
+        
+        # Overall GPA (W)
+        ws[f'L{display_row}'] = f'=IF({combined_check},\'Data Source\'!W{data_row},"")'
+        ws[f'L{display_row}'].number_format = '0.00'
+        ws[f'L{display_row}'].alignment = Alignment(horizontal='center')
+        
+        # Overall Grade (X)
+        ws[f'M{display_row}'] = f'=IF({combined_check},\'Data Source\'!X{data_row},"")'
+        ws[f'M{display_row}'].alignment = Alignment(horizontal='center')
+        
+        display_row += 1
+    
+    # Column widths
+    ws.column_dimensions['A'].width = 5
+    ws.column_dimensions['B'].width = 18
+    for col in ['C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K']:
+        ws.column_dimensions[col].width = 10
+    ws.column_dimensions['L'].width = 10
+    ws.column_dimensions['M'].width = 12
+
 def create_subjectwise_gpa_sheet(wb, df):
     """Create Subject-wise GPA sheet displaying individual GP values for all subjects"""
     
@@ -728,6 +834,12 @@ def generate_excel_file(filename='Academic_Results_Dashboard.xlsx'):
     
     # Create Subject-wise GPA sheet
     create_subjectwise_gpa_sheet(wb, df)
+    
+    # Create Grade A+ sheet
+    create_grade_filtered_sheet(wb, 'A+', 'Grade A+ Students')
+    
+    # Create Grade F sheet
+    create_grade_filtered_sheet(wb, 'F', 'Grade F Students')
     
     # Note: Pivot sheet would require manual creation in Excel or additional library
     wb.create_sheet('Pivot')
